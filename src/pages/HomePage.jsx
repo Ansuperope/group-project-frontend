@@ -196,13 +196,14 @@ const HomePage = () => {
   }
 
   return (
-    <div id="container">
+    <div className="city-container">
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <div id="title">European Cities and Distances from Berlin</div>
-        <Link id="trip" to="/trip">create my trip</Link>
+        <div className="sub-header">European Cities and Distances from Berlin</div>
+        <Link className="button" to="/trip">create my trip</Link>
       </div>
       
-      <div id="cities-result" style={{ overflow: 'auto', maxHeight: '600px', width: '100%' }}>
+      {/* Cities list */}
+      <div className="cities-result">
         {cities.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '20px' }}>
             No cities available
@@ -212,6 +213,8 @@ const HomePage = () => {
             const distanceFromBerlin = getDistanceFromBerlin(city);
             return (
               <div key={city.id}>
+
+                {/* City button */}
                 <button 
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                   onClick={() => handleCityClick(city)}
@@ -222,33 +225,31 @@ const HomePage = () => {
                     <FaChevronDown 
                       aria-hidden="true"
                     />
-                    <span style={{ display: 'block', flex: '1', marginLeft: '10px' }}>{city.name}</span>
+                    <span className="city-name">{city.name}</span>
                   </div>
-                  <span style={{ 
-                    fontSize: '18px', 
-                    color: '#e7e9e7ff', 
-                    fontWeight: 'bold',
-                    marginRight: '10px'
-                  }}>
+                  <span>
                     {formatDistance(distanceFromBerlin)}
                   </span>
                 </button>
-                
+                {/* END City button */}
+
+                {/* Expanded food options */}
                 {expandedCities.has(city.id) && (
-                  <div style={{ paddingLeft: '20px', marginBottom: '10px' }}>
-                    <h4 className="header">Food Options:</h4>
+                  <div className="food-container">
                     {loadingFood.has(city.id) ? (
                       <p style={{ color: '#666', fontStyle: 'italic' }}>Loading food...</p>
                     ) : cityFoods[city.id] && cityFoods[city.id].length > 0 ? (
+                      
+                      // List food items
                       <ul style={{ listStyle: 'none', padding: 0 }}>
                         {cityFoods[city.id].map((food, index) => (
-                          <li key={index} style={{ padding: '5px 0', borderBottom: '1px solid #ccc' }}>
+                          <li key={index} className="food-name">
                             {typeof food === 'string' ? (
                               food
                             ) : (
                               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span>{food.name || food.title || food.foodName || 'Unknown Food'}</span>
-                                <span style={{ fontWeight: 'bold', color: '#2E7D32' }}>
+                                <span className="food-price">
                                   ${food.price || food.cost || food.amount || 'N/A'}
                                 </span>
                               </div>
@@ -256,16 +257,22 @@ const HomePage = () => {
                           </li>
                         ))}
                       </ul>
+                      // END List food items
+                      
                     ) : (
                       <p style={{ color: '#666', fontStyle: 'italic' }}>No food options available</p>
                     )}
                   </div>
                 )}
+                {/* END Expanded food options */}
+
               </div>
             );
           })
         )}
       </div>
+      {/* END Cities list */}
+
     </div>
   );
 };
