@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FaPlus, FaMinus } from 'react-icons/fa';
 import { citiesAPI } from "../apis/cityApis";
 import { tripAPI, TripTypes } from "../apis/tripApi";
 import Input from "../components/Input";
@@ -132,18 +133,34 @@ const TripPage = () => {
 
   // Custom Handler 
   // const handleCustomTour = async () => {
-  const handleCustomTour = () => {
-    navigate("/create-trip");
-  };
-
-
-  // Allows city selection toggling for custom
-  const toggleCitySelection = (city) => {
-    setSelectedCities(prev => 
-      prev.includes(city) 
-        ? prev.filter(c => c !== city)
-        : [...prev, city]
-    );
+   const handleCustomTour = async () => {
+    if (!customStartCity) {
+      alert('Please select a starting city');
+      return;
+    }
+    if (selectedCities.length === 0) {
+      alert('Please select at least one city to visit');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const tripData = await tripAPI.planCustomTour(customStartCity, selectedCities);
+      navigate("/dashboard", { 
+        state: { 
+          tripType: TripTypes.CUSTOM_TOUR,
+          tripData: tripData,
+          startingCity: customStartCity,
+          selectedCities: selectedCities,
+          description: `Custom Tour - Starting from ${customStartCity}, visiting ${selectedCities.length} cities`,
+        } 
+      });
+    } catch (error) {
+      console.error('Error planning custom tour:', error);
+      alert('Failed to plan custom tour. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
 
@@ -166,14 +183,26 @@ const TripPage = () => {
     setSelectedCities([]);
   };
 
+  // Toggle city selection for custom tour
+  const toggleCitySelection = (cityName) => {
+    setSelectedCities(prev => 
+      prev.includes(cityName) 
+        ? prev.filter(c => c !== cityName)
+        : [...prev, cityName]
+    );
+  };
+
 
   // DISPLAY 
   return (
-    <div className="container">
-      <div className="header">Choose Your European Vacation Plan</div>
+    <div className={selectedTripType === TripTypes.CUSTOM_TOUR ? "" : "container"}>
+      {selectedTripType !== TripTypes.CUSTOM_TOUR && (
+        <div className="header">Choose Your European Vacation Plan</div>
+      )}
       
       {isLoading && <div className="loading">Planning your trip...</div>}
       
+      { /* Start - Select Trip Type */}
       {!selectedTripType && (
         <div className="trip-options">
           <Input
@@ -209,6 +238,7 @@ const TripPage = () => {
           />
         </div>
       )}
+      { /* End - Select Trip Type */}
 
       { /* Paris Tour - Description - When clicked on */}
       {selectedTripType === TripTypes.PARIS_TOUR && (
@@ -295,23 +325,117 @@ const TripPage = () => {
 
       { /* Custom Tour - Description - When clicked on */}
       {selectedTripType === TripTypes.CUSTOM_TOUR && (
-        <div className="trip-config">
-          <h3>Custom Tour Description</h3>
-          
-          
-          <div className="button-group">
-            <Input
-              type="button"
-              value={`Start Custom Tour`}
-              onClick={() => navigate('/create-trip')}
-              disabled={isLoading}
-            />
-            <Input
-              type="button"
-              value="Back"
-              onClick={() => setSelectedTripType(null)}
-              disabled={isLoading}
-            />
+        <div style={{ display: 'flex', height: '100vh' }}>
+          {/* LEFT SIDE - LIST OF CITIES */}
+          <div id="leftBG">
+            <div className="create-header">List of Cities</div>
+            
+            {/* City Mode Selection */}
+            <div style={{ marginBottom: '10px' }}>
+              <div style={{ marginBottom: '10px' }}>
+                <label className="sub-header">Choose City Set:</label>
+              </div>
+
+              { /* City Set Buttons - 11 or 13 */ }
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button 
+                  className="btn-city-list"
+                  onClick={() => handleModeChange('11cities')}
+                  style={{ backgroundColor: customTripMode === '11cities' ? '#9c7e70' : '#c3b1a5' }}
+                >
+                  11 Cities
+                </button>
+                <button 
+                  className="btn-city-list"
+                  onClick={() => handleModeChange('13cities')}
+                  style={{ backgroundColor: customTripMode === '13cities' ? '#9c7e70' : '#c3b1a5' }}
+                >
+                  13 Cities
+                </button>
+              </div>
+              { /* END City Set Buttons - 11 or 13 */ }
+
+            </div>
+            
+            <div className="cities-list">
+              {getAvailableCitiesForMode().map(city => (
+                <div key={city.id} className="city-row">
+                  <span>{city.name}</span>
+                  <button onClick={() => toggleCitySelection(city.name)}>
+                    <FaPlus />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* RIGHT SIDE - CHOSEN CITIES */}
+          <div id="rightContainer">
+            <div className="create-header">My List ({selectedCities.length} cities)</div>
+            
+            {/* Starting City Dropdown */}
+            <div className="starting-city-dropdown">
+              <label>Choose Starting City:</label>
+              <select 
+                value={customStartCity} 
+                onChange={(e) => setCustomStartCity(e.target.value)}
+              >
+                <option value="">Select starting city...</option>
+                {selectedCities.map(cityName => (
+                  <option key={cityName} value={cityName}>
+                    {cityName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Selected Cities List */}
+            <div className="selected-cities-scroll-container">
+              {selectedCities.length === 0 ? (
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '20px', 
+                  color: '#666',
+                  fontStyle: 'italic' 
+                }}>
+                  No cities selected yet. Add cities from the left panel.
+                </div>
+              ) : (
+                selectedCities.map((cityName, index) => (
+                  <div key={cityName} className="selected-city-row">
+                    <span className="number">{index + 1}.</span>
+                    <span className="city-name">{cityName}</span>
+                    <button 
+                      className="minus-btn"
+                      onClick={() => toggleCitySelection(cityName)}
+                    >
+                      <FaMinus />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            { /* END Selected Cities List */ }
+
+            { /* Buttons - submit and back */ }
+            <div className="button-group">
+              <Input
+                type="button"
+                className="default-button"
+                value="Back"
+                onClick={() => setSelectedTripType(null)}
+              />
+              <Input
+                type="button"
+                className="default-button"
+                style={{ marginLeft: 'auto' }}
+                value="Start Custom Tour"
+                onClick={handleCustomTour}
+                disabled={isLoading || selectedCities.length === 0 || !customStartCity}
+              />
+            </div>
+            { /* END Buttons - submit and back  */}
+
           </div>
         </div>
       )}

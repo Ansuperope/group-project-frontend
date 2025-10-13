@@ -53,3 +53,13 @@ strong {
 .button-group {
     display: flex;
 }
+
+.btn-city-list {
+    padding: 10px 15px;
+    color: var(--default-text-color);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: center;
+    font-size: 16px;
+}
