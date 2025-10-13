@@ -173,7 +173,7 @@ body {
 
 /* Second button style - lighter, smaller
   example: tour confirm buttons */
-.second-button, .button-group [type="button"]{
+.second-button, .button-group [type="button"] {
   padding: 10px 10px;
   border: var(--border-style);
   color: var(--default-text-color);
@@ -191,7 +191,7 @@ body {
 }
 
 /* Input field styling */
-input[type="number"] {
+input[type="number"], input[type="text"], select {
   width: 100%;
   padding: 5px 10px;
   margin: 8px 0;
@@ -213,4 +213,42 @@ input[type="number"] {
   display: block;
   scrollbar-width: thin;
   scrollbar-color: var(--secondary-brown) var(--background);
+}
+
+/* Food add button styling - matches CreateTrip page buttons */
+.food-button {
+  background-color: var(--primary-brown);
+  color: var(--default-text-color);
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex-shrink: 0;
+  padding: 0;
+  margin-left: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+}
+
+/* Food button hover effect - matches CreateTrip page */
+.food-button:hover {
+  background-color: #45a049;
+}
+
+/* Food minus button specific styling */
+.food-minus-button {
+  background-color: var(--secondary-brown);
+  margin-left: 0;
+  margin-right: 5px;
+}
+
+/* Food minus button hover effect */
+.food-minus-button:hover {
+  background-color: #da190b;
 }

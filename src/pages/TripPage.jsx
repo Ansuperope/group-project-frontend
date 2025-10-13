@@ -328,7 +328,7 @@ const TripPage = () => {
         <div style={{ display: 'flex', height: '100vh' }}>
           {/* LEFT SIDE - LIST OF CITIES */}
           <div id="leftBG">
-            <div className="create-header">List of Cities</div>
+            <div className="header">List of Cities</div>
             
             {/* City Mode Selection */}
             <div style={{ marginBottom: '10px' }}>
@@ -361,7 +361,7 @@ const TripPage = () => {
               {getAvailableCitiesForMode().map(city => (
                 <div key={city.id} className="city-row">
                   <span>{city.name}</span>
-                  <button onClick={() => toggleCitySelection(city.name)}>
+                  <button className="food-button" onClick={() => toggleCitySelection(city.name)}>
                     <FaPlus />
                   </button>
                 </div>
@@ -371,11 +371,11 @@ const TripPage = () => {
 
           {/* RIGHT SIDE - CHOSEN CITIES */}
           <div id="rightContainer">
-            <div className="create-header">My List ({selectedCities.length} cities)</div>
+            <div className="header">My List ({selectedCities.length} cities)</div>
             
             {/* Starting City Dropdown */}
-            <div className="starting-city-dropdown">
-              <label>Choose Starting City:</label>
+            <div className="trip-summary">
+              <label className="sub-header">Choose Starting City:</label>
               <select 
                 value={customStartCity} 
                 onChange={(e) => setCustomStartCity(e.target.value)}
@@ -406,7 +406,7 @@ const TripPage = () => {
                     <span className="number">{index + 1}.</span>
                     <span className="city-name">{cityName}</span>
                     <button 
-                      className="minus-btn"
+                      className="food-button minus-btn"
                       onClick={() => toggleCitySelection(cityName)}
                     >
                       <FaMinus />

@@ -3,7 +3,6 @@ import HomePage from './pages/HomePage';
 import TripPage from './pages/TripPage';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
-import CreateTripPage from './pages/CreateTripPage';
 import SummaryPage from './pages/SummaryPage';
 
 const AppRoutes = () => {
@@ -13,7 +12,6 @@ const AppRoutes = () => {
       <Route path="/home" element={<HomePage />} />
       <Route path="/trip" element={<TripPage />} />
       <Route path="/dashboard" element={<DashboardPage />} />
-      <Route path="/create-trip" element={<CreateTripPage />} />
       <Route path="/summary" element={<SummaryPage  />} />
     </Routes>
   );
