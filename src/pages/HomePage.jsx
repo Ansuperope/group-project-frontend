@@ -1,3 +1,6 @@
+// HomePage.jsx
+// Main page showing list of cities, admin functions
+
 import { useEffect, useState } from "react";
 import { FaChevronDown, FaChevronUp, FaPlus, FaTrash, FaEdit, FaUser } from "react-icons/fa";
 import { Link } from "react-router-dom";

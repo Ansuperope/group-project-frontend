@@ -1,3 +1,6 @@
+// DashboardPage.jsx
+// User selected trip summary, food selection, cost breakdown
+
 import { useEffect, useState } from "react";
 import { FaChevronDown, FaChevronUp, FaPlus, FaMinus } from "react-icons/fa";
 import { useLocation, useNavigate } from "react-router-dom";

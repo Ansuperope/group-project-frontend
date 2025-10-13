@@ -166,13 +166,13 @@ const TripPage = () => {
 
   // Get cities based on selected mode
   const getAvailableCitiesForMode = () => {
-    if (customTripMode === '11cities') {
-      // Exclude Vienna (id: 13) and Stockholm (id: 12)
-      return availableCities.filter(city => city.id !== 12 && city.id !== 13);
-    } else {
-      // Include all 13 cities
-      return availableCities;
-    }
+    // Start with the appropriate city set based on mode
+    const baseList = customTripMode === '11cities'
+      ? availableCities.filter(city => city.id !== 12 && city.id !== 13) // Exclude Vienna (13) and Stockholm (12)
+      : availableCities;
+
+    // Exclude any cities already selected to avoid duplicates across lists
+    return baseList.filter(city => !selectedCities.includes(city.name));
   };
 
 
@@ -185,11 +185,17 @@ const TripPage = () => {
 
   // Toggle city selection for custom tour
   const toggleCitySelection = (cityName) => {
-    setSelectedCities(prev => 
-      prev.includes(cityName) 
-        ? prev.filter(c => c !== cityName)
-        : [...prev, cityName]
-    );
+    setSelectedCities(prev => {
+      if (prev.includes(cityName)) {
+        const next = prev.filter(c => c !== cityName);
+        // If the removed city was the starting city, clear the selection
+        if (customStartCity === cityName) {
+          setCustomStartCity('');
+        }
+        return next;
+      }
+      return [...prev, cityName];
+    });
   };
 
 
