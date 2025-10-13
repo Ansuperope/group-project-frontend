@@ -166,15 +166,13 @@ const TripPage = () => {
 
   // Get cities based on selected mode
   const getAvailableCitiesForMode = () => {
-    // Base list depending on mode
-    const baseList = customTripMode === '11cities'
+    if (customTripMode === '11cities') {
       // Exclude Vienna (id: 13) and Stockholm (id: 12)
-      ? availableCities.filter(city => city.id !== 12 && city.id !== 13)
+      return availableCities.filter(city => city.id !== 12 && city.id !== 13);
+    } else {
       // Include all 13 cities
-      : availableCities;
-
-    // Hide cities that are already selected in the custom list
-    return baseList.filter(city => !selectedCities.includes(city.name));
+      return availableCities;
+    }
   };
 
 
@@ -197,9 +195,11 @@ const TripPage = () => {
 
   // DISPLAY 
   return (
-    <div className={selectedTripType === TripTypes.CUSTOM_TOUR ? "" : "container"}>
+    <>
+      
+      <div className={selectedTripType === TripTypes.CUSTOM_TOUR ? "" : "container"}>
       {selectedTripType !== TripTypes.CUSTOM_TOUR && (
-        <div className="header">Choose Your European Vacation Plan</div>
+        <div className="header" style={{ textAlign: 'center', fontSize: '35px', marginBottom: '20px' }}>Choose Your European Vacation Plan</div>
       )}
       
       {isLoading && <div className="loading">Planning your trip...</div>}
@@ -441,7 +441,21 @@ const TripPage = () => {
           </div>
         </div>
       )}
+      
     </div>
+
+    {!selectedTripType && (
+        <div>
+          <Input
+            type="button"
+            className="second-button"
+            style={{ float: 'right', marginTop: '5px' }}
+            value="Back"
+            onClick={() => navigate('/home')}
+          />
+        </div>
+      )}
+    </>
   );
 };
 

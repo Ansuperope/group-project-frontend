@@ -20,6 +20,8 @@ function DashboardPage() {
   const [loadingFood, setLoadingFood] = useState(new Set()); // Track cities loading food
   const [cityDistances, setCityDistances] = useState({}); // Store city distances
   const [searchTerm, setSearchTerm] = useState(''); // Search functionality
+  // Local input state for per-food quantity edits
+  const [quantityInputs, setQuantityInputs] = useState({});
 
   // Debug: Log the trip data when component mounts
   useEffect(() => {
@@ -341,6 +343,14 @@ const addFoodItem = (cityName, food) => {
         : item
     ));
     setTotalCost(prev => prev + foodPrice);
+    // Clear any stale manual input so UI reflects updated quantity
+    const key = `${cityName}::${foodName}`;
+    setQuantityInputs(prev => {
+      if (prev[key] === undefined) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   } else {
     // Add new item with quantity 1
     const newItem = {
@@ -352,6 +362,13 @@ const addFoodItem = (cityName, food) => {
     };
     setSelectedFoodItems(prev => [...prev, newItem]);
     setTotalCost(prev => prev + foodPrice);
+    const key = `${cityName}::${foodName}`;
+    setQuantityInputs(prev => {
+      if (prev[key] === undefined) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   }
 };
   const getFoodQuantity = (cityName, foodName) => {
@@ -383,7 +400,64 @@ const subtractFoodItem = (cityName, food) => {
       ));
     }
     setTotalCost(prev => prev - foodPrice);
+    const key = `${cityName}::${foodName}`;
+    setQuantityInputs(prev => {
+      if (prev[key] === undefined) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   }
+};
+
+// Directly set a food quantity (used by input Enter key)
+const setFoodQuantity = (cityName, food, newQtyRaw) => {
+  // Allow blank/undefined to mean 0
+  let newQty = parseInt(newQtyRaw, 10);
+  if (isNaN(newQty) || newQty < 0) newQty = 0;
+
+  const foodName = food.name || food.title || food.foodName || 'Unknown Food';
+  const foodPrice = parseFloat(food.price || food.cost || food.amount || 0);
+
+  const existingItem = selectedFoodItems.find(item => 
+    item.cityName === cityName && item.foodName === foodName
+  );
+
+  if (existingItem) {
+    const oldQty = existingItem.quantity || 1;
+    if (newQty === 0) {
+      // Remove item and adjust cost
+      setSelectedFoodItems(prev => prev.filter(item => item.id !== existingItem.id));
+      setTotalCost(prev => prev - oldQty * foodPrice);
+    } else if (newQty !== oldQty) {
+      setSelectedFoodItems(prev => prev.map(item => 
+        item.id === existingItem.id ? { ...item, quantity: newQty } : item
+      ));
+      const delta = (newQty - oldQty) * foodPrice;
+      setTotalCost(prev => prev + delta);
+    }
+  } else {
+    if (newQty > 0) {
+      // Add new item with specified quantity
+      const newItem = {
+        id: Date.now(),
+        cityName,
+        foodName,
+        price: foodPrice,
+        quantity: newQty
+      };
+      setSelectedFoodItems(prev => [...prev, newItem]);
+      setTotalCost(prev => prev + newQty * foodPrice);
+    }
+  }
+  // Clear manual input cache after saving so display syncs with state
+  const key = `${cityName}::${foodName}`;
+  setQuantityInputs(prev => {
+    if (prev[key] === undefined) return prev;
+    const next = { ...prev };
+    delete next[key];
+    return next;
+  });
 };
 
   const getTripTypeDisplay = () => {
@@ -612,24 +686,39 @@ const subtractFoodItem = (cityName, food) => {
                               </span>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              {/* Minus button - only show when quantity > 0 */}
-                              {quantity > 0 && (
-                                <button 
-                                  onClick={() => subtractFoodItem(city.name, { name: foodName, price: foodPrice })}
-                                  className="food-button food-minus-button"
-                                  title="Remove one"
-                                >
-                                  <FaMinus />
-                                </button>
-                              )}
-                              
-                              {/* Quantity display - only show when quantity > 0 */}
-                              {quantity > 0 && (
-                                <span className="food-name">
-                                  {quantity}
-                                </span>
-                              )}
-                              
+                              {/* Minus button - keep behavior */}
+                              <button 
+                                onClick={() => subtractFoodItem(city.name, { name: foodName, price: foodPrice })}
+                                className="food-button food-minus-button"
+                                title="Remove one"
+                                disabled={quantity <= 0}
+                              >
+                                <FaMinus />
+                              </button>
+
+                              {/* Quantity input - always visible, Enter to save */}
+                              <input
+                                type="text" // use text to avoid native number spinners
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={
+                                  quantityInputs[`${city.name}::${foodName}`] ?? quantity
+                                }
+                                onChange={(e) => {
+                                  const key = `${city.name}::${foodName}`;
+                                  setQuantityInputs(prev => ({ ...prev, [key]: e.target.value }));
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    const key = `${city.name}::${foodName}`;
+                                    const value = quantityInputs[key] ?? quantity;
+                                    setFoodQuantity(city.name, { name: foodName, price: foodPrice }, value);
+                                  }
+                                }}
+                                style={{ width: '60px', textAlign: 'center' }}
+                                aria-label={`Set quantity for ${foodName}`}
+                              />
+
                               {/* Plus button */}
                               <button 
                                 onClick={() => addFoodItem(city.name, { name: foodName, price: foodPrice })}
