@@ -166,13 +166,15 @@ const TripPage = () => {
 
   // Get cities based on selected mode
   const getAvailableCitiesForMode = () => {
-    if (customTripMode === '11cities') {
+    // Base list depending on mode
+    const baseList = customTripMode === '11cities'
       // Exclude Vienna (id: 13) and Stockholm (id: 12)
-      return availableCities.filter(city => city.id !== 12 && city.id !== 13);
-    } else {
+      ? availableCities.filter(city => city.id !== 12 && city.id !== 13)
       // Include all 13 cities
-      return availableCities;
-    }
+      : availableCities;
+
+    // Hide cities that are already selected in the custom list
+    return baseList.filter(city => !selectedCities.includes(city.name));
   };
 
 
