@@ -2,7 +2,7 @@
 // Main page showing list of cities, admin functions
 
 import { useEffect, useState } from "react";
-import { FaChevronDown, FaChevronUp, FaPlus, FaTrash, FaEdit, FaUser } from "react-icons/fa";
+import { FaChevronDown, FaChevronUp, FaPlus, FaTrash, FaEdit, FaUser, FaEye, FaEyeSlash } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { citiesAPI } from "../apis/cityApis";
 import { cityManagementAPI } from "../apis/tripApi";
@@ -24,6 +24,7 @@ const HomePage = () => {
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminLoading, setAdminLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   
   // Admin operations
@@ -518,14 +519,42 @@ const HomePage = () => {
                 onChange={(e) => setAdminUsername(e.target.value)}
                 style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
               />
-              <input
-                type="password"
-                placeholder="Password"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleAdminLogin()}
-                style={{ width: '100%', padding: '8px' }}
-              />
+              <div style={{ position: 'relative', width: '100%' }}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAdminLogin()}
+                  style={{ width: '100%', padding: '8px', paddingRight: '36px' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  style={{
+                    position: 'absolute',
+                    right: '0',
+                    top: '0',
+                    height: '100%',
+                    width: '36px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    margin: 0,
+                    cursor: 'pointer',
+                    outline: 'none',
+                    color: '#888',
+                    fontSize: '18px',
+                  }}
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
             </div>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button 
