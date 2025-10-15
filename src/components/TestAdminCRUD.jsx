@@ -1,3 +1,7 @@
+// TestAdminCRUD.jsx
+// for testing admin CRUD operations before implementing to DashboardPage
+// this file can be ignored or deleted but keeping for now in case needed later
+
 import { useState } from 'react';
 import { adminAPI } from '../apis/adminApi';
 
