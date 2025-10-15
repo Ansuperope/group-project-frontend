@@ -1,7 +1,7 @@
 // DashboardPage.jsx
 // User selected trip summary, food selection, cost breakdown
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { FaChevronDown, FaChevronUp, FaPlus, FaMinus } from "react-icons/fa";
 import { useLocation, useNavigate } from "react-router-dom";
 import { citiesAPI } from "../apis/cityApis";
@@ -22,8 +22,12 @@ function DashboardPage() {
   const [expandedCities, setExpandedCities] = useState(new Set()); // Track expanded cities
   const [loadingFood, setLoadingFood] = useState(new Set()); // Track cities loading food
   const [cityDistances, setCityDistances] = useState({}); // Store city distances
-  const [searchTerm, setSearchTerm] = useState(''); // Search functionality city
-  // const [foodSearchTerm, setFoodSearchTerm] = useState(''); // Search for food
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchDropdown, setSearchDropdown] = useState([]); // Dropdown options
+  const [searchSelected, setSearchSelected] = useState(null); // Selected dropdown item
+  const [highlightedCityId, setHighlightedCityId] = useState(null);
+  const [highlightedFood, setHighlightedFood] = useState({ cityId: null, foodName: null });
+  const searchInputRef = useRef();
   // Local input state for per-food quantity edits
   const [quantityInputs, setQuantityInputs] = useState({});
 
@@ -246,27 +250,48 @@ function DashboardPage() {
   });
 }
 
-  // Add this debug function to test the food API
-  const testFoodAPI = async (cityId) => {
-    try {
-      console.log(`Testing food API for city ID: ${cityId}`);
-      const response = await fetch(`/api/cities/${cityId}/foods`);
-      console.log('Food API response status:', response.status);
-      console.log('Food API response headers:', response.headers);
-      
-      if (!response.ok) {
-        console.error('Food API error:', response.status, response.statusText);
-        const errorText = await response.text();
-        console.error('Food API error body:', errorText);
-        return;
-      }
-      
-      const data = await response.json();
-      console.log('Food API response data:', data);
-    } catch (error) {
-      console.error('Food API fetch error:', error);
-    }
-  };
+  // Prefetch first few cities' foods in the background to improve perceived latency
+  useEffect(() => {
+    if (!tripCities || tripCities.length === 0) return;
+    const toPrefetch = tripCities
+      .slice(0, 3)
+      .filter(city => (!city.food || city.food.length === 0) && !cityFoodData[city.id]);
+    if (toPrefetch.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const results = await Promise.all(
+          toPrefetch.map(async (city) => {
+            try {
+              const foodData = await citiesAPI.getCityFood(city.id);
+              let foods = [];
+              if (Array.isArray(foodData)) foods = foodData;
+              else if (foodData.foods && Array.isArray(foodData.foods)) foods = foodData.foods;
+              else if (foodData.food && Array.isArray(foodData.food)) foods = foodData.food;
+              else if (foodData.data && Array.isArray(foodData.data)) foods = foodData.data;
+              return { cityId: city.id, foods };
+            } catch (e) {
+              return { cityId: city.id, foods: [] };
+            }
+          })
+        );
+        if (!cancelled) {
+          setCityFoodData(prev => {
+            const next = { ...prev };
+            results.forEach(({ cityId, foods }) => {
+              if (!next[cityId]) next[cityId] = foods;
+            });
+            return next;
+          });
+        }
+      } catch {}
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tripCities, cityFoodData]);
 
   // Handle city click to expand/collapse and fetch food data
   const handleCityClick = async (city) => {
@@ -279,9 +304,6 @@ function DashboardPage() {
       } else {
         // Expand the city
         newExpandedCities.add(city.id);
-        
-        // Test the food API first
-        await testFoodAPI(city.id);
         
         // Fetch food data if not already loaded
         if (!cityFoodData[city.id] && (!city.food || city.food.length === 0)) {
@@ -532,49 +554,100 @@ const setFoodQuantity = (cityName, food, newQtyRaw) => {
     return cityDistances[key] || null;
   };
 
-  // Search function to scroll to city
+  // Build dropdown options as user types
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setSearchDropdown([]);
+      setSearchSelected(null);
+      return;
+    }
+    const term = searchTerm.trim().toLowerCase();
+    // Cities
+    const cityOptions = tripCities
+      .filter(city => city.name.toLowerCase().includes(term))
+      .map(city => ({
+        type: 'city',
+        id: city.id,
+        label: `City: ${city.name}`,
+        cityName: city.name
+      }));
+    // Foods
+    let foodOptions = [];
+    tripCities.forEach(city => {
+      const foods = getCityFood(city);
+      foods.forEach(food => {
+        if ((food.name || '').toLowerCase().includes(term)) {
+          foodOptions.push({
+            type: 'food',
+            id: food.id,
+            label: `Food: ${food.name} (${city.name})`,
+            cityId: city.id,
+            foodName: food.name
+          });
+        }
+      });
+    });
+    setSearchDropdown([...cityOptions, ...foodOptions]);
+    setSearchSelected(null);
+  }, [searchTerm, tripCities]);
+
+  // Search function to scroll to city or food
   const handleSearch = (e) => {
     e.preventDefault();
-    if (!searchTerm.trim()) return;
+    let target = searchSelected || searchDropdown[0];
+    const term = (searchTerm || '').trim().toLowerCase();
 
-    const foundCityIndex = tripCities.findIndex(city => 
-      city.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    if (foundCityIndex !== -1) {
-      const cityElement = document.getElementById(`city-${tripCities[foundCityIndex].id}`);
-      if (cityElement) {
-        cityElement.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
-        });
+    // Fallback: if no dropdown target, try to find city/food by typed text
+    if (!target && term) {
+      const cityMatch = tripCities.find(c => c.name.toLowerCase().includes(term));
+      if (cityMatch) {
+        target = { type: 'city', id: cityMatch.id };
+      } else {
+        // search foods across available data
+        for (const city of tripCities) {
+          const foods = getCityFood(city);
+          const foodMatch = foods.find(f => (f.name || '').toLowerCase().includes(term));
+          if (foodMatch) {
+            target = { type: 'food', cityId: city.id, foodName: foodMatch.name };
+            break;
+          }
+        }
       }
-    } else {
-      alert(`City "${searchTerm}" not found in your route.`);
+    }
+
+    if (!target) return;
+
+    if (target.type === 'city') {
+      setExpandedCities(prev => {
+        const newSet = new Set(prev);
+        newSet.add(target.id);
+        return newSet;
+      });
+      setTimeout(() => {
+        const cityElement = document.getElementById(`city-${target.id}`);
+        if (cityElement) {
+          cityElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        setHighlightedCityId(target.id);
+        setTimeout(() => setHighlightedCityId(null), 1800);
+      }, 100);
+    } else if (target.type === 'food') {
+      setExpandedCities(prev => {
+        const newSet = new Set(prev);
+        newSet.add(target.cityId);
+        return newSet;
+      });
+      setTimeout(() => {
+        const cityElement = document.getElementById(`city-${target.cityId}`);
+        if (cityElement) {
+          cityElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        // highlight food row briefly
+        setHighlightedFood({ cityId: target.cityId, foodName: target.foodName });
+        setTimeout(() => setHighlightedFood({ cityId: null, foodName: null }), 1800);
+      }, 100);
     }
   };
-
-  // Search function to scroll to food - TO DO
-  // const handleFoodSearch = (f) => {
-  //   f.preventDefault();
-  //   if (!searchTerm.trim()) return;
-
-  //   const foundFoodIndex = tripFoodItems.findIndex(food => 
-  //     food.name.toLowerCase().includes(searchTerm.toLowerCase())
-  //   );
-
-  //   if (foundFoodIndex !== -1) {
-  //     const foodElement = document.getElementById(`food-${tripFoodItems[foundFoodIndex].id}`);
-  //     if (foodElement) {
-  //       foodElement.scrollIntoView({ 
-  //         behavior: 'smooth', 
-  //         block: 'center' 
-  //       });
-  //     }
-  //   } else {
-  //     alert(`Food item "${searchTerm}" not found in your trip.`);
-  //   }
-  // };
 
   if (!tripData) {
     return (
@@ -596,52 +669,61 @@ const setFoodQuantity = (cityName, food, newQtyRaw) => {
         {/* Search Feature */}
         <div style={{ padding: '5px 20px', borderBottom: '1px solid var(--dark-brown)' }}>
           { /* Search City */ }
-          <form onSubmit={handleSearch} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <form onSubmit={handleSearch} style={{ display: 'flex', gap: '10px', alignItems: 'center' }} autoComplete="off">
             <div className="sub-header" 
-              style={{ marginRight: '10px',
-                       fontSize: '14px',
-                       whiteSpace: 'nowrap' }}
-            >Search City:</div>
-            <input
-              type="text"
-              placeholder="Search for a city..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ marginRight: '10px', fontSize: '14px', whiteSpace: 'nowrap' }}
+            >Search City or Food:</div>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Type city or food name..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{ width: '100%' }}
+                onFocus={() => setSearchDropdown(searchDropdown)}
+                autoComplete="off"
               />
+              {searchDropdown.length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '40px',
+                  left: 0,
+                  width: '100%',
+                  background: 'white',
+                  border: '1px solid #ccc',
+                  zIndex: 10,
+                  maxHeight: '180px',
+                  overflowY: 'auto',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                }}>
+                  {searchDropdown.map((item, idx) => (
+                    <div
+                      key={item.type + '-' + item.id + '-' + (item.cityId || '')}
+                      onMouseDown={() => {
+                        setSearchSelected(item);
+                        setSearchTerm(item.type === 'city' ? item.cityName : item.foodName);
+                        setTimeout(() => setSearchDropdown([]), 100);
+                      }}
+                      style={{
+                        padding: '8px',
+                        cursor: 'pointer',
+                        background: searchSelected && searchSelected.id === item.id && searchSelected.type === item.type ? '#eee' : 'white'
+                      }}
+                    >
+                      {item.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               type="submit"
-              style={{
-                width: 'auto',
-                borderRadius: '5px',
-              }}
+              style={{ width: 'auto', borderRadius: '5px' }}
             >
               Find
             </button>
           </form>
-
-          { /* Search Food */}
-          {/* <form onSubmit={handleFoodSearch} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <div className="sub-header" 
-              style={{ marginRight: '10px',
-                       fontSize: '14px',
-                       whiteSpace: 'nowrap' }}
-            >Search Food:</div>
-            <input
-              type="text"
-              placeholder="Search for a food..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            <button
-              type="submit"
-              style={{
-                width: 'auto',
-                borderRadius: '5px',
-              }}
-            >
-              Find
-            </button>
-          </form> */}
 
         </div>
         
@@ -672,7 +754,8 @@ const setFoodQuantity = (cityName, food, newQtyRaw) => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      width: '100%'
+                      width: '100%',
+                      background: highlightedCityId === city.id ? 'var(--secondary-brown)' : undefined
                     }}
                   >
                     {/* Left section: Icon + Route Index + City Name */}
@@ -728,9 +811,9 @@ const setFoodQuantity = (cityName, food, newQtyRaw) => {
                       const foodName = food.name || food.title || food.foodName || `Food Item ${index + 1}`;
                       const foodPrice = parseFloat(food.price || food.cost || food.amount || 0);
                       const quantity = getFoodQuantity(city.name, foodName);
-                      
+                      const isHighlighted = highlightedFood.cityId === city.id && highlightedFood.foodName === foodName;
                       return (
-                        <li key={index} style={{ padding: '5px 0', borderBottom: '1px solid #ccc' }}>
+                        <li key={index} style={{ padding: '5px 0', borderBottom: '1px solid #ccc', background: isHighlighted ? 'var(--secondary-brown)' : undefined }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div  className="food-name" style={{ display: 'flex', justifyContent: 'space-between', flex: 1 }}>
                               <span style={{ borderBottom: 'none' }}>

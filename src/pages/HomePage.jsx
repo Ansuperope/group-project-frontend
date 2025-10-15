@@ -9,6 +9,7 @@ import { cityManagementAPI } from "../apis/tripApi";
 import { adminAPI } from "../apis/adminApi";
 import "../style/home.css";
 import { w } from "happy-dom/lib/PropertySymbol";
+import SearchableFoodSelect from "../components/SearchableFoodSelect";
 
 const HomePage = () => {
   const [cities, setCities] = useState([]);
@@ -33,6 +34,7 @@ const HomePage = () => {
   // Admin operations
   const [showAddCity, setShowAddCity] = useState(false);
   const [newCityName, setNewCityName] = useState('');
+  const [newCityFile, setNewCityFile] = useState(null);
   const [showEditCity, setShowEditCity] = useState(false);
   const [editingCityId, setEditingCityId] = useState('');
   const [editingCityName, setEditingCityName] = useState('');
@@ -48,9 +50,12 @@ const HomePage = () => {
   const [editingFoodId, setEditingFoodId] = useState('');
   const [editingFoodName, setEditingFoodName] = useState('');
   const [editingFoodPrice, setEditingFoodPrice] = useState('');
+  const [editFoodFilter, setEditFoodFilter] = useState('');
+  const [editFoodInputFocused, setEditFoodInputFocused] = useState(false);
   const [showDeleteFood, setShowDeleteFood] = useState(false);
   const [deleteFoodId, setDeleteFoodId] = useState('');
   const [allFoods, setAllFoods] = useState([]);
+  // Remove old filter/focus state for delete food
 
   useEffect(() => {
     const loadCitiesWithDistances = async () => {
@@ -259,20 +264,29 @@ const HomePage = () => {
   // END refreshCitiesData - refresh cities function
 
 
-  // Add new city
+  // Add new city via JSON upload
   const handleAddCity = async () => {
-    if (!newCityName.trim()) return;
-    
+    if (!newCityFile) {
+      alert('Please choose a .json file first.');
+      return;
+    }
+    // Basic validation of file type/extension
+    const isJson = newCityFile.type === 'application/json' || newCityFile.name.toLowerCase().endsWith('.json');
+    if (!isJson) {
+      alert('Invalid file type. Please upload a .json file.');
+      return;
+    }
     setAdminLoading(true);
     try {
-      await adminAPI.addCity(newCityName);
+      await adminAPI.uploadCityJson(newCityFile);
       setNewCityName('');
+      setNewCityFile(null);
       setShowAddCity(false);
       // Refresh cities data without page reload
       await refreshCitiesData();
     } catch (error) {
-      console.error('Add city failed:', error);
-      alert('Failed to add city: ' + error.message);
+      console.error('Add city via JSON failed:', error);
+      alert('Failed to upload city JSON: ' + error.message);
     } finally {
       setAdminLoading(false);
     }
@@ -702,10 +716,10 @@ const HomePage = () => {
               {showAddCity && (
                 <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px', border: '1px solid #dee2e6' }}>
                   <input
-                    type="text"
-                    placeholder="City name"
-                    value={newCityName}
-                    onChange={(e) => setNewCityName(e.target.value)}
+                    type="file"
+                    accept=".json,application/json"
+                    placeholder="City JSON file"
+                    onChange={(e) => setNewCityFile(e.target.files && e.target.files[0] ? e.target.files[0] : null)}
                     style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
                   />
                   <div style={{ display: 'flex', gap: '8px' }}>
@@ -878,21 +892,20 @@ const HomePage = () => {
               >
                 <FaEdit /> Edit Food
               </button>
-              
               {showEditFood && (
-                <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px', border: '1px solid #dee2e6' }}>
-                  <select
+                <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px', border: '1px solid #dee2e6', position: 'relative' }}>
+                  <SearchableFoodSelect
+                    items={allFoods}
+                    cities={cities}
                     value={editingFoodId}
-                    onChange={(e) => setEditingFoodId(e.target.value)}
-                    style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
-                  >
-                    <option value="">Select food to edit</option>
-                    {allFoods.map(food => (
-                      <option key={food.id} value={food.id}>
-                        ID {food.id}: {food.name} (${food.price})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(id, item) => {
+                      setEditingFoodId(id);
+                    }}
+                    getLabel={food => `ID ${food.id}: ${food.name} ($${food.price})`}
+                    getId={food => food.id}
+                    getCityId={food => food.city_id || food.cityId}
+                    placeholder="Type food name, ID, or city"
+                  />
                   <input
                     type="text"
                     placeholder="New food name (optional)"
@@ -911,7 +924,7 @@ const HomePage = () => {
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button 
                       onClick={handleEditFood}
-                      disabled={adminLoading}
+                      disabled={adminLoading || !editingFoodId}
                       className="button" style={{ margin: 0, flex: 1 }}>
                       Update
                     </button>
@@ -935,25 +948,24 @@ const HomePage = () => {
               >
                 <FaTrash /> Delete Food
               </button>
-              
               {showDeleteFood && (
-                <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px', border: '1px solid #dee2e6' }}>
-                  <select
+                <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px', border: '1px solid #dee2e6', position: 'relative' }}>
+                  <SearchableFoodSelect
+                    items={allFoods}
+                    cities={cities}
                     value={deleteFoodId}
-                    onChange={(e) => setDeleteFoodId(e.target.value)}
-                    style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
-                  >
-                    <option value="">Select food to delete</option>
-                    {allFoods.map(food => (
-                      <option key={food.id} value={food.id}>
-                        ID {food.id}: {food.name} (${food.price})
-                      </option>
-                    ))}
-                  </select>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                    onChange={(id, item) => {
+                      setDeleteFoodId(id);
+                    }}
+                    getLabel={food => `ID ${food.id}: ${food.name} ($${food.price})`}
+                    getId={food => food.id}
+                    getCityId={food => food.city_id || food.cityId}
+                    placeholder="Type food name, ID, or city"
+                  />
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                     <button 
                       onClick={handleDeleteFood}
-                      disabled={adminLoading}
+                      disabled={adminLoading || !deleteFoodId}
                       className="button" style={{ margin: 0, flex: 1 }}>
                       Delete
                     </button>
