@@ -327,6 +327,17 @@ const HomePage = () => {
       setShowDeleteCity(false);
       // Refresh cities data without page reload
       await refreshCitiesData();
+      const cid = parseInt(deleteCityId);
+      setCityFoods(prev => {
+        const next = { ...prev };
+        delete next[cid];
+        return next;
+      });
+      setExpandedCities(prev => {
+        const next = new Set(prev);
+        next.delete(cid);
+        return next;
+      });
     } catch (error) {
       console.error('Delete city failed:', error);
       alert('Failed to delete city: ' + error.message);
@@ -341,12 +352,22 @@ const HomePage = () => {
     
     setAdminLoading(true);
     try {
-      await adminAPI.addFood(parseInt(foodCityId), newFoodName, parseFloat(newFoodPrice));
+      const cid = parseInt(foodCityId);
+      await adminAPI.addFood(cid, newFoodName, parseFloat(newFoodPrice));
       setFoodCityId('');
       setNewFoodName('');
       setNewFoodPrice('');
       setShowAddFood(false);
       await refreshCitiesData();
+      if (expandedCities.has(cid)) {
+        await refreshCityFood(cid);
+      } else {
+        setCityFoods(prev => {
+          const next = { ...prev };
+          delete next[cid];
+          return next;
+        });
+      }
     } catch (error) {
       console.error('Add food failed:', error);
       alert('Failed to add food: ' + error.message);
@@ -371,6 +392,19 @@ const HomePage = () => {
       setEditingFoodPrice('');
       setShowEditFood(false);
       await refreshCitiesData();
+      const match = allFoods.find(f => f.id === parseInt(editingFoodId));
+      const cid = match ? (match.city_id || match.cityId) : null;
+      if (cid) {
+        if (expandedCities.has(cid)) {
+          await refreshCityFood(cid);
+        } else {
+          setCityFoods(prev => {
+            const next = { ...prev };
+            delete next[cid];
+            return next;
+          });
+        }
+      }
     } catch (error) {
       console.error('Edit food failed:', error);
       alert('Failed to edit food: ' + error.message);
@@ -393,6 +427,19 @@ const HomePage = () => {
       setDeleteFoodId('');
       setShowDeleteFood(false);
       await refreshCitiesData();
+      const match = allFoods.find(f => f.id === parseInt(deleteFoodId));
+      const cid = match ? (match.city_id || match.cityId) : null;
+      if (cid) {
+        if (expandedCities.has(cid)) {
+          await refreshCityFood(cid);
+        } else {
+          setCityFoods(prev => {
+            const next = { ...prev };
+            delete next[cid];
+            return next;
+          });
+        }
+      }
     } catch (error) {
       console.error('Delete food failed:', error);
       alert('Failed to delete food: ' + error.message);
@@ -408,6 +455,34 @@ const HomePage = () => {
       setAllFoods(foodsData.foods || foodsData || []);
     } catch (error) {
       console.error('Failed to load foods:', error);
+    }
+  };
+
+  // Refresh a single city's food list to reflect latest changes immediately
+  const refreshCityFood = async (cityId) => {
+    if (!cityId) return;
+    try {
+      setLoadingFood(prev => new Set(prev).add(cityId));
+      const foodData = await citiesAPI.getCityFood(cityId);
+      let foods = [];
+      if (Array.isArray(foodData)) {
+        foods = foodData;
+      } else if (foodData.foods && Array.isArray(foodData.foods)) {
+        foods = foodData.foods;
+      } else if (foodData.food && Array.isArray(foodData.food)) {
+        foods = foodData.food;
+      } else if (foodData.data && Array.isArray(foodData.data)) {
+        foods = foodData.data;
+      }
+      setCityFoods(prev => ({ ...prev, [cityId]: foods }));
+    } catch (error) {
+      console.error(`Failed to refresh food for city ${cityId}:`, error);
+    } finally {
+      setLoadingFood(prev => {
+        const next = new Set(prev);
+        next.delete(cityId);
+        return next;
+      });
     }
   };
 
