@@ -685,18 +685,7 @@ const setFoodQuantity = (cityName, food, newQtyRaw) => {
                 autoComplete="off"
               />
               {searchDropdown.length > 0 && (
-                <div style={{
-                  position: 'absolute',
-                  top: '40px',
-                  left: 0,
-                  width: '100%',
-                  background: 'white',
-                  border: '1px solid #ccc',
-                  zIndex: 10,
-                  maxHeight: '180px',
-                  overflowY: 'auto',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
-                }}>
+                <div className="dropdown">
                   {searchDropdown.map((item, idx) => (
                     <div
                       key={item.type + '-' + item.id + '-' + (item.cityId || '')}
@@ -708,7 +697,7 @@ const setFoodQuantity = (cityName, food, newQtyRaw) => {
                       style={{
                         padding: '8px',
                         cursor: 'pointer',
-                        background: searchSelected && searchSelected.id === item.id && searchSelected.type === item.type ? '#eee' : 'white'
+                        background: searchSelected && searchSelected.id === item.id && searchSelected.type === item.type ? 'var(--primary-brown)' : 'transparent'
                       }}
                     >
                       {item.label}

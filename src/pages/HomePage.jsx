@@ -1,7 +1,7 @@
 // HomePage.jsx
 // Main page showing list of cities, admin functions
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { FaChevronDown, FaChevronUp, FaPlus, FaTrash, FaEdit, FaUser, FaEye, FaEyeSlash } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { citiesAPI } from "../apis/cityApis";
@@ -57,6 +57,14 @@ const HomePage = () => {
   const [allFoods, setAllFoods] = useState([]);
   // Remove old filter/focus state for delete food
 
+  // Search functionality
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchDropdown, setSearchDropdown] = useState([]);
+  const [searchSelected, setSearchSelected] = useState(null);
+  const [highlightedCityId, setHighlightedCityId] = useState(null);
+  const [highlightedFood, setHighlightedFood] = useState({ cityId: null, foodName: null });
+  const searchInputRef = useRef();
+
   useEffect(() => {
     const loadCitiesWithDistances = async () => {
       try {
@@ -74,6 +82,15 @@ const HomePage = () => {
           allCities = citiesData;
         }
         
+        // Log Stockholm and Vienna city objects for debug
+        const stockholm = allCities.find(city => city.name && city.name.toLowerCase() === 'stockholm');
+        if (stockholm) {
+          console.log('[DEBUG] Stockholm city object:', stockholm);
+        }
+        const vienna = allCities.find(city => city.name && city.name.toLowerCase() === 'vienna');
+        if (vienna) {
+          console.log('[DEBUG] Vienna city object:', vienna);
+        }
         // Get distances from Berlin
         let distancesFromBerlin = {};
         try {
@@ -115,10 +132,21 @@ const HomePage = () => {
         }
         
         // Add distances to all cities and sort by distance from Berlin
-        const citiesWithDistances = allCities.map(city => ({
-          ...city,
-          distance_from_berlin: distancesFromBerlin[city.id] || null
-        }));
+        const citiesWithDistances = allCities.map(city => {
+          let distance = distancesFromBerlin[city.id] || null;
+          if ((distance === null || distance === undefined) && Array.isArray(city.distances)) {
+            const toBerlin = city.distances.find(
+              d => (d.to && d.to.toLowerCase() === 'berlin')
+            );
+            if (toBerlin && typeof toBerlin.distance === 'number') {
+              distance = toBerlin.distance;
+            }
+          }
+          return {
+            ...city,
+            distance_from_berlin: distance
+          };
+        });
 
         // Separate Berlin from other cities
         const berlinCity = citiesWithDistances.find(city => 
@@ -233,10 +261,24 @@ const HomePage = () => {
       }
       
       // Add distances to all cities and sort by distance from Berlin
-      const citiesWithDistances = allCities.map(city => ({
-        ...city,
-        distance_from_berlin: distancesFromBerlin[city.id] || null
-      }));
+      const citiesWithDistances = allCities.map(city => {
+        let distance = distancesFromBerlin[city.id] || null;
+        if ((distance === null || distance === undefined) && Array.isArray(city.distances)) {
+          const toBerlin = city.distances.find(
+            d => (d.to && d.to.toLowerCase() === 'berlin')
+          );
+          if (toBerlin && typeof toBerlin.distance === 'number') {
+            distance = toBerlin.distance;
+          } else {
+            // Debug log for missing Berlin distance
+            console.log('[DEBUG] No Berlin distance found for city:', city.name, city.distances, city);
+          }
+        }
+        return {
+          ...city,
+          distance_from_berlin: distance
+        };
+      });
 
       const berlinCity = citiesWithDistances.find(city => 
         city.name.toLowerCase() === 'berlin'
@@ -540,7 +582,114 @@ const HomePage = () => {
     if (city.name.toLowerCase() === 'berlin') {
       return 0;
     }
-    return city.distance_from_berlin !== undefined ? city.distance_from_berlin : null;
+    // Prefer distance_from_berlin if present and not null
+    if (city.distance_from_berlin !== undefined && city.distance_from_berlin !== null) {
+      return city.distance_from_berlin;
+    }
+    // Fallback: check city.distances array for a distance to Berlin by name
+    if (Array.isArray(city.distances)) {
+      const toBerlin = city.distances.find(
+        d => (d.to && d.to.toLowerCase() === 'berlin')
+      );
+      if (toBerlin && typeof toBerlin.distance === 'number') {
+        return toBerlin.distance;
+      }
+    }
+    return null;
+  };
+
+  // Build dropdown options as user types (match DashboardPage logic)
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setSearchDropdown([]);
+      setSearchSelected(null);
+      return;
+    }
+    const term = searchTerm.trim().toLowerCase();
+    // Cities
+    const cityOptions = cities
+      .filter(city => city.name.toLowerCase().includes(term))
+      .map(city => ({
+        type: 'city',
+        id: city.id,
+        label: `City: ${city.name}`,
+        cityName: city.name
+      }));
+    // Foods
+    let foodOptions = [];
+    cities.forEach(city => {
+      const foods = cityFoods[city.id] || [];
+      foods.forEach(food => {
+        if ((food.name || '').toLowerCase().includes(term)) {
+          foodOptions.push({
+            type: 'food',
+            id: food.id,
+            label: `Food: ${food.name} (${city.name})`,
+            cityId: city.id,
+            foodName: food.name
+          });
+        }
+      });
+    });
+    setSearchDropdown([...cityOptions, ...foodOptions]);
+    setSearchSelected(null);
+  }, [searchTerm, cities, cityFoods]);
+
+  // Handle search form submit (match DashboardPage logic)
+  const handleSearch = (e) => {
+    e.preventDefault();
+    let target = searchSelected || searchDropdown[0];
+    const term = (searchTerm || '').trim().toLowerCase();
+
+    // Fallback: if no dropdown target, try to find city/food by typed text
+    if (!target && term) {
+      const cityMatch = cities.find(c => c.name.toLowerCase().includes(term));
+      if (cityMatch) {
+        target = { type: 'city', id: cityMatch.id };
+      } else {
+        // search foods across available data
+        for (const city of cities) {
+          const foods = cityFoods[city.id] || [];
+          const foodMatch = foods.find(f => (f.name || '').toLowerCase().includes(term));
+          if (foodMatch) {
+            target = { type: 'food', cityId: city.id, foodName: foodMatch.name };
+            break;
+          }
+        }
+      }
+    }
+
+    if (!target) return;
+
+    if (target.type === 'city') {
+      setExpandedCities(prev => {
+        const newSet = new Set(prev);
+        newSet.add(target.id);
+        return newSet;
+      });
+      setTimeout(() => {
+        const cityElement = document.getElementById(`city-${target.id}`);
+        if (cityElement) {
+          cityElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        setHighlightedCityId(target.id);
+        setTimeout(() => setHighlightedCityId(null), 1800);
+      }, 100);
+    } else if (target.type === 'food') {
+      setExpandedCities(prev => {
+        const newSet = new Set(prev);
+        newSet.add(target.cityId);
+        return newSet;
+      });
+      setTimeout(() => {
+        const cityElement = document.getElementById(`city-${target.cityId}`);
+        if (cityElement) {
+          cityElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        setHighlightedFood({ cityId: target.cityId, foodName: target.foodName });
+        setTimeout(() => setHighlightedFood({ cityId: null, foodName: null }), 1800);
+      }, 100);
+    }
   };
 
   // Helper function to format distance
@@ -595,6 +744,55 @@ const HomePage = () => {
           
         </div>
 
+        {/* Search Feature (match DashboardPage) */}
+        <div style={{ padding: '5px 20px', borderBottom: '1px solid var(--dark-brown)' }}>
+          <form onSubmit={handleSearch} style={{ display: 'flex', gap: '10px', alignItems: 'center' }} autoComplete="off">
+            <div className="sub-header" 
+              style={{ marginRight: '10px', fontSize: '14px', whiteSpace: 'nowrap' }}
+            >Search City or Food:</div>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Type city or food name..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{ width: '100%' }}
+                onFocus={() => setSearchDropdown(searchDropdown)}
+                autoComplete="off"
+              />
+              {searchDropdown.length > 0 && (
+                <div className="dropdown">
+                  {searchDropdown.map((item, idx) => (
+                    <div
+                      key={item.type + '-' + item.id + '-' + (item.cityId || '')}
+                      onMouseDown={() => {
+                        setSearchSelected(item);
+                        setSearchTerm(item.type === 'city' ? item.cityName : item.foodName);
+                        setTimeout(() => setSearchDropdown([]), 100);
+                      }}
+                      style={{
+                        padding: '8px',
+                        cursor: 'pointer',
+                        background: searchSelected && searchSelected.id === item.id && searchSelected.type === item.type ? 'var(--primary-brown)' : 'transparent'
+                      }}
+                    >
+                      {item.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              type="submit"
+              style={{ width: 'auto', borderRadius: '5px' }}
+            >
+              Find
+            </button>
+          </form>
+        </div>
+
+        
         {/* Admin login popup */}
         {showAdminLogin && !isAdmin && (
           <div className="container" style={{
@@ -685,7 +883,7 @@ const HomePage = () => {
         )}
       
       {/* Cities list */}
-      <div className="cities-result">
+      <div className="cities-result" style={{ maxHeight: '67vh'}}>
         {cities.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '20px' }}>
             No cities available
@@ -694,7 +892,16 @@ const HomePage = () => {
           cities.map((city) => {
             const distanceFromBerlin = getDistanceFromBerlin(city);
             return (
-              <div key={city.id}>
+              <div 
+                key={city.id} 
+                id={`city-${city.id}`} 
+                style={{
+                  transition: 'background-color 0.5s ease',
+                  backgroundColor: highlightedCityId === city.id ? 'var(--secondary-brown)' : 'transparent',
+                  borderRadius: highlightedCityId === city.id ? '8px' : '0',
+                  padding: highlightedCityId === city.id ? '5px' : '0'
+                }}
+              >
 
                 {/* City button */}
                 <button 
@@ -731,7 +938,15 @@ const HomePage = () => {
                       // List food items
                       <ul style={{ listStyle: 'none', padding: 0 }}>
                         {cityFoods[city.id].map((food, index) => (
-                          <li key={index} className="food-name">
+                          <li 
+                            key={index} 
+                            className="food-name"
+                            id={`food-${city.id}-${(food.name || food.title || food.foodName || 'unknown').replace(/\s+/g, '-')}`}
+                            style={{
+                              transition: 'background-color 0.3s',
+                              backgroundColor: highlightedFood.cityId === city.id && highlightedFood.foodName === (food.name || food.title || food.foodName) ? '#fff3cd' : 'transparent'
+                            }}
+                          >
                             {typeof food === 'string' ? (
                               food
                             ) : (
@@ -789,7 +1004,7 @@ const HomePage = () => {
               </button>
               
               {showAddCity && (
-                <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px', border: '1px solid #dee2e6' }}>
+                <div className="control-group">
                   <input
                     type="file"
                     accept=".json,application/json"
@@ -823,7 +1038,7 @@ const HomePage = () => {
               </button>
               
               {showEditCity && (
-                <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px', border: '1px solid #dee2e6' }}>
+                <div className="control-group">
                   <select
                     value={editingCityId}
                     onChange={(e) => setEditingCityId(e.target.value)}
@@ -870,7 +1085,7 @@ const HomePage = () => {
               </button>
               
               {showDeleteCity && (
-                <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px', border: '1px solid #dee2e6' }}>
+                <div className="control-group">
                   <select
                     value={deleteCityId}
                     onChange={(e) => setDeleteCityId(e.target.value)}
@@ -912,7 +1127,7 @@ const HomePage = () => {
               </button>
               
               {showAddFood && (
-                <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px', border: '1px solid #dee2e6' }}>
+                <div className="control-group">
                   <select
                     value={foodCityId}
                     onChange={(e) => setFoodCityId(e.target.value)}
@@ -968,8 +1183,8 @@ const HomePage = () => {
                 <FaEdit /> Edit Food
               </button>
               {showEditFood && (
-                <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px', border: '1px solid #dee2e6', position: 'relative' }}>
-                  <SearchableFoodSelect
+                <div className="control-group">
+                  <SearchableFoodSelect className="dropdown"
                     items={allFoods}
                     cities={cities}
                     value={editingFoodId}
@@ -1024,8 +1239,8 @@ const HomePage = () => {
                 <FaTrash /> Delete Food
               </button>
               {showDeleteFood && (
-                <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '4px', border: '1px solid #dee2e6', position: 'relative' }}>
-                  <SearchableFoodSelect
+                <div className="control-group"> 
+                  <SearchableFoodSelect className="dropdown"
                     items={allFoods}
                     cities={cities}
                     value={deleteFoodId}

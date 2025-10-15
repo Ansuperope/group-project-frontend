@@ -61,20 +61,9 @@ const SearchableFoodSelect = ({
         autoComplete="off"
       />
       {(focused || filter.length > 0) && (
-        <div style={{
-          position: 'absolute',
-          top: '40px',
-          left: 0,
-          width: '100%',
-          background: 'white',
-          border: '1px solid #ccc',
-          zIndex: 10,
-          maxHeight: '180px',
-          overflowY: 'auto',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
-        }}>
+        <div className="dropdown">
           {filtered.length === 0 && (
-            <div style={{ padding: '8px', color: '#888' }}>No results found</div>
+            <div style={{ padding: '8px', color: 'var(--dark-brown)' }}>No results found</div>
           )}
           {filtered.map(item => (
             <div
@@ -87,7 +76,7 @@ const SearchableFoodSelect = ({
               style={{
                 padding: '8px',
                 cursor: 'pointer',
-                background: value === String(getId(item)) ? '#eee' : 'white'
+                background: value === String(getId(item)) ? 'var(--primary-brown)' : 'transparent'
               }}
             >
               {getLabel(item)}
