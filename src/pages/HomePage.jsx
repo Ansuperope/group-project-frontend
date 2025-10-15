@@ -19,7 +19,10 @@ const HomePage = () => {
   const [loadingFood, setLoadingFood] = useState(new Set());
 
   // Admin functionality
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(() => {
+    // Check localStorage for admin login flag
+    return localStorage.getItem('isAdmin') === 'true';
+  });
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
@@ -151,7 +154,6 @@ const HomePage = () => {
   // Admin login function
   const handleAdminLogin = async () => {
     if (!adminUsername || !adminPassword) return;
-    
     setAdminLoading(true);
     try {
       const response = await adminAPI.login(adminUsername, adminPassword);
@@ -161,6 +163,8 @@ const HomePage = () => {
         setShowAdminMenu(true);
         setAdminUsername('');
         setAdminPassword('');
+        // Persist admin login
+        localStorage.setItem('isAdmin', 'true');
       }
     } catch (error) {
       console.error('Admin login failed:', error);
@@ -174,11 +178,14 @@ const HomePage = () => {
   const handleAdminLogout = async () => {
     try {
       await adminAPI.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
       setIsAdmin(false);
       setShowAdminMenu(false);
       setShowAdminLogin(false);
-    } catch (error) {
-      console.error('Logout error:', error);
+      // Remove admin login flag
+      localStorage.removeItem('isAdmin');
     }
   };
   // END handAdminLogout - admin functions

@@ -30,9 +30,10 @@ const LoginPage = () => {
     
   const handleLogin = (e) => {
     e.preventDefault();
-    
     // Simple validation - just check if fields are filled
     if (formData.name.trim() && formData.password.trim()) {
+      // Set admin login flag in localStorage
+      localStorage.setItem('isAdmin', 'true');
       // Navigate to HomePage immediately
       navigate("/home");
     } else {

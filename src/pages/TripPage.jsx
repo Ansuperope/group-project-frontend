@@ -86,11 +86,11 @@ const TripPage = () => {
 
   // London Handler
   const handleLondonTour = async () => {
-    if (!numberOfCities || numberOfCities < 1 || numberOfCities > 11) {
-      alert('Please enter a valid number of cities (1-11)');
+    const maxCities = availableCities.length;
+    if (!numberOfCities || numberOfCities < 1 || numberOfCities > maxCities) {
+      alert(`Please enter a valid number of cities (1-${maxCities})`);
       return;
     }
-    
     setIsLoading(true);
     try {
       const tripData = await tripAPI.planLondonTour(parseInt(numberOfCities));
@@ -277,15 +277,15 @@ const TripPage = () => {
       {selectedTripType === TripTypes.LONDON_TOUR && (
         <div className="trip-config">
           <h3>London Tour Description</h3>
-          <div className="input-group">
+          <div className="input-group">S
             <label>Number of cities to visit (including London):</label>
             <input
               type="number"
               min="1"
-              max="11"
+              max={availableCities.length}
               value={numberOfCities}
               onChange={(e) => setNumberOfCities(e.target.value)}
-              placeholder="Enter number (1-11)"
+              placeholder={`Enter number (1-${availableCities.length})`}
             />
           </div>
           <div className="button-group">

@@ -22,7 +22,8 @@ function DashboardPage() {
   const [expandedCities, setExpandedCities] = useState(new Set()); // Track expanded cities
   const [loadingFood, setLoadingFood] = useState(new Set()); // Track cities loading food
   const [cityDistances, setCityDistances] = useState({}); // Store city distances
-  const [searchTerm, setSearchTerm] = useState(''); // Search functionality
+  const [searchTerm, setSearchTerm] = useState(''); // Search functionality city
+  // const [foodSearchTerm, setFoodSearchTerm] = useState(''); // Search for food
   // Local input state for per-food quantity edits
   const [quantityInputs, setQuantityInputs] = useState({});
 
@@ -553,6 +554,28 @@ const setFoodQuantity = (cityName, food, newQtyRaw) => {
     }
   };
 
+  // Search function to scroll to food - TO DO
+  // const handleFoodSearch = (f) => {
+  //   f.preventDefault();
+  //   if (!searchTerm.trim()) return;
+
+  //   const foundFoodIndex = tripFoodItems.findIndex(food => 
+  //     food.name.toLowerCase().includes(searchTerm.toLowerCase())
+  //   );
+
+  //   if (foundFoodIndex !== -1) {
+  //     const foodElement = document.getElementById(`food-${tripFoodItems[foundFoodIndex].id}`);
+  //     if (foodElement) {
+  //       foodElement.scrollIntoView({ 
+  //         behavior: 'smooth', 
+  //         block: 'center' 
+  //       });
+  //     }
+  //   } else {
+  //     alert(`Food item "${searchTerm}" not found in your trip.`);
+  //   }
+  // };
+
   if (!tripData) {
     return (
       <div>
@@ -572,6 +595,7 @@ const setFoodQuantity = (cityName, food, newQtyRaw) => {
         
         {/* Search Feature */}
         <div style={{ padding: '5px 20px', borderBottom: '1px solid var(--dark-brown)' }}>
+          { /* Search City */ }
           <form onSubmit={handleSearch} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <div className="sub-header" 
               style={{ marginRight: '10px',
@@ -594,6 +618,31 @@ const setFoodQuantity = (cityName, food, newQtyRaw) => {
               Find
             </button>
           </form>
+
+          { /* Search Food */}
+          {/* <form onSubmit={handleFoodSearch} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <div className="sub-header" 
+              style={{ marginRight: '10px',
+                       fontSize: '14px',
+                       whiteSpace: 'nowrap' }}
+            >Search Food:</div>
+            <input
+              type="text"
+              placeholder="Search for a food..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            <button
+              type="submit"
+              style={{
+                width: 'auto',
+                borderRadius: '5px',
+              }}
+            >
+              Find
+            </button>
+          </form> */}
+
         </div>
         
         {/* Apply HomePage container styling to cities section */}
